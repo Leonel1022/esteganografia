@@ -1,175 +1,234 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Esteganografía</title>
-    <style>
-        body {
-            font-family: 'Roboto', Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            background-color: #121212;
-            color: #ffffff;
-        }
-        header {
-            padding: 20px;
-            background-color: #1f1f1f;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-        h1 {
-            margin: 0;
-            font-size: 2rem;
-        }
-        main {
-            padding: 20px;
-        }
-        input[type="file"],
-        textarea,
-        button {
-            font-family: 'Roboto', Arial, sans-serif;
-            margin: 10px 0;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-        }
-        input[type="file"] {
-            background-color: #1f1f1f;
-            color: #ffffff;
-            cursor: pointer;
-        }
-        textarea {
-            width: 90%;
-            max-width: 500px;
-            background-color: #1f1f1f;
-            color: #ffffff;
-            border: 1px solid #333333;
-        }
-        button {
-            background-color: #FF9800;
-            color: #ffffff;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #df8b1e;
-        }
-        canvas {
-            margin-top: 20px;
-            border: 1px solid #333333;
-        }
-        #downloadButton {
-            display: none;
-        }
-        .menu a{
-            text-decoration: none;
-            color: #ffffff;
-            font-size: 20px;
-        }
-
-        .menu a:hover {
-            text-decoration:underline;
-            color: #d1d0d0;
-            font-size: 20px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Esteganografía</title>
+<style>
+    body {
+        font-family: 'Roboto', Arial, sans-serif;
+        text-align: center;
+        background-color: #121212;
+        color: #fff;
+    }
+    header { padding: 20px; background: #1f1f1f; }
+    h1 { margin: 0; }
+    input, textarea, button {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 5px;
+        border: none;
+    }
+    input[type="file"], textarea {
+        background: #1f1f1f;
+        color: #fff;
+    }
+    button { background: #FF9800; color: #fff; cursor: pointer; }
+    button:hover { background: #df8b1e; }
+</style>
 </head>
 <body>
-    <header>
-        <h1>Herramienta de Esteganografía</h1>
-       <div class="menu">
-         <a href="https://leonel1022.github.io/Leonel1022/">Menu</a>
-       </div>
-    </header>
-    <main>
-        <input type="file" id="imageInput" accept="image/*">
-        <br>
-        <textarea id="secretText" placeholder="Escribe tu mensaje secreto aquí..." rows="4"></textarea>
-        <br>
-        <button onclick="encodeText()">Ocultar Texto</button>
-        <button onclick="decodeText()">Extraer Texto</button>
-        <br>
-        <canvas id="imageCanvas"></canvas>
-        <br>
-        <button id="downloadButton">Descargar Imagen</button>
-    </main>
-    <footer>
-        © 2025 LeoShield. Todos los derechos reservados.
-    </footer>
-    <script>
-        const canvas = document.getElementById('imageCanvas');
-        const ctx = canvas.getContext('2d');
 
-        let img = new Image();
+<header>
+    <h1>Esteganografía</h1>
+</header>
 
-        document.getElementById('imageInput').addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            const reader = new FileReader();
+<main>
+    <input type="file" id="imageInput" accept="image/*">
+    <br>
+    <textarea id="secretText" placeholder="Mensaje secreto..." rows="4"></textarea>
+    <br>
+    <input type="text" id="password" placeholder="Contraseña (opcional)">
+    <br>
 
-            reader.onload = function(e) {
-                img.src = e.target.result;
-            };
+    <!-- Botones  -->
+    <button onclick="encodeText()">LSB Ocultar</button>
+    <button onclick="decodeText()">LSB Extraer</button> 
+    <br>
+    <button onclick="metadataSteg()">Metadatos Ocultar</button>
+    <button onclick="metadataExtract()">Metadatos Extraer</button>
+    <br>
+    <button onclick="eofSteg()">EOF Ocultar</button>
+    <button onclick="eofExtract()">EOF Extraer</button>
+    <br>
 
-            reader.readAsDataURL(file);
-        });
+    <canvas id="imageCanvas"></canvas>
+    <br>
+    <button id="downloadButton" style="display:none;">Descargar Imagen</button>
+</main>
 
-        img.onload = function() {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-        };
+<footer>© 2025 LeoShield</footer>
 
-        function encodeText() {
-            const text = document.getElementById('secretText').value;
-            if (!text) {
-                alert('Por favor, escribe un mensaje para ocultar.');
-                return;
-            }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script>
+const canvas = document.getElementById('imageCanvas');
+const ctx = canvas.getContext('2d');
+let img = new Image();
+let loadedFile;
 
-            const binaryText = Array.from(text).map(char => char.charCodeAt(0).toString(2).padStart(8, '0')).join('') + '1111111111111110';
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
+// Carga imagen
+document.getElementById('imageInput').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    loadedFile = file;
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    reader.readAsDataURL(file);
+});
 
-            let binaryIndex = 0;
-            for (let i = 0; i < pixels.length; i += 4) {
-                if (binaryIndex < binaryText.length) {
-                    pixels[i] = (pixels[i] & ~1) | parseInt(binaryText[binaryIndex]);
-                    binaryIndex++;
-                } else {
-                    break;
-                }
-            }
+img.onload = function() {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+};
 
-            ctx.putImageData(imageData, 0, 0);
-            document.getElementById('downloadButton').style.display = 'block';
+// boton de descarga
+document.getElementById('downloadButton').addEventListener('click', () => {
+    canvas.toBlob(blob => {
+        downloadBlob(blob, loadedFile.name.split('.')[0] + '_LSB.png');
+    }, 'image/png');
+});
+
+/* --- LSB --- */
+function encodeText() {
+    if (!loadedFile || !img.src || !img.complete) return alert("Carga una imagen válida primero");
+
+    let text = document.getElementById('secretText').value;
+    if (!text) return alert("Escribe un mensaje secreto");
+
+    const password = document.getElementById('password').value;
+    if (password) text = CryptoJS.AES.encrypt(text, password).toString();
+
+    // Convertir texto a bytes UTF-8
+    const textBytes = new TextEncoder().encode(text);
+    const lengthBits = textBytes.length * 8;
+    
+    // Verifica la capacidad
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+    const maxBits = (pixels.length / 4) * 3;
+    if (lengthBits + 32 > maxBits) return alert("El mensaje es demasiado largo para la imagen");
+
+    // Guarda longitud
+    let binaryIndex = 0;
+    const lengthBin = lengthBits.toString(2).padStart(32, '0');
+    for (let i = 0; i < pixels.length && binaryIndex < 32; i += 4) {
+        for (let c = 0; c < 3 && binaryIndex < 32; c++) {
+            pixels[i + c] = (pixels[i + c] & ~1) | parseInt(lengthBin[binaryIndex]);
+            binaryIndex++;
         }
+    }
 
-        function decodeText() {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
-
-            let binaryText = '';
-            for (let i = 0; i < pixels.length; i += 4) {
-                binaryText += (pixels[i] & 1).toString();
-            }
-
-            const bytes = binaryText.match(/.{1,8}/g);
-            let extractedText = '';
-            for (let byte of bytes) {
-                if (byte === '11111110') break;
-                extractedText += String.fromCharCode(parseInt(byte, 2));
-            }
-
-            alert(`Texto extraído: ${extractedText}`);
+    // Guarda dts
+    const dataBin = Array.from(textBytes)
+        .map(b => b.toString(2).padStart(8, '0'))
+        .join('');
+    for (let i = 0; i < pixels.length && binaryIndex < (32 + lengthBits); i += 4) {
+        for (let c = 0; c < 3 && binaryIndex < (32 + lengthBits); c++) {
+            pixels[i + c] = (pixels[i + c] & ~1) | parseInt(dataBin[binaryIndex - 32]);
+            binaryIndex++;
         }
+    }
 
-        document.getElementById('downloadButton').addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = 'imagen_esteganografica.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        });
-    </script>
+    ctx.putImageData(imageData, 0, 0);
+    document.getElementById('downloadButton').style.display = 'block';
+    alert("Mensaje oculto correctamente. Haz clic en 'Descargar Imagen' para guardar.");
+}
+
+function decodeText() {
+    if (!loadedFile || !img.src || !img.complete) return alert("Carga una imagen válida primero");
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+
+    // Lee longitud
+    let binaryIndex = 0;
+    let lengthBin = '';
+    for (let i = 0; i < pixels.length && binaryIndex < 32; i += 4) {
+        for (let c = 0; c < 3 && binaryIndex < 32; c++) {
+            lengthBin += (pixels[i + c] & 1);
+            binaryIndex++;
+        }
+    }
+    const lengthBits = parseInt(lengthBin, 2);
+
+    // Lee dts
+    let dataBin = '';
+    for (let i = 0; i < pixels.length && binaryIndex < (32 + lengthBits); i += 4) {
+        for (let c = 0; c < 3 && binaryIndex < (32 + lengthBits); c++) {
+            dataBin += (pixels[i + c] & 1);
+            binaryIndex++;
+        }
+    }
+    const bytes = dataBin.match(/.{1,8}/g).map(b => parseInt(b, 2));
+    let extracted = new TextDecoder().decode(new Uint8Array(bytes));
+
+    // Desencriptar
+    const password = document.getElementById('password').value;
+    if (password) {
+        try {
+            extracted = CryptoJS.AES.decrypt(extracted, password).toString(CryptoJS.enc.Utf8);
+            if (!extracted) return alert("Contraseña incorrecta o mensaje corrupto");
+        } catch (e) {
+            return alert("Contraseña incorrecta o mensaje corrupto");
+        }
+    }
+
+    alert("Texto extraído: " + extracted);
+}
+
+/* --- EOF Steganography --- */
+function eofSteg() {
+    if (!loadedFile) return alert("Carga una imagen primero");
+    let text = document.getElementById('secretText').value;
+    if (!text) return alert("Escribe un texto");
+
+    const password = document.getElementById('password').value;
+    if (password) text = CryptoJS.AES.encrypt(text, password).toString();
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imgBuffer = new Uint8Array(e.target.result);
+        const textBytes = new TextEncoder().encode("\nEOFSTEG:" + text);
+        const combined = new Uint8Array(imgBuffer.length + textBytes.length);
+        combined.set(imgBuffer, 0);
+        combined.set(textBytes, imgBuffer.length);
+        downloadBlob(new Blob([combined]), loadedFile.name.split('.')[0] + "_EOF.png");
+    };
+    reader.readAsArrayBuffer(loadedFile);
+}
+
+function eofExtract() {
+    if (!loadedFile) return alert("Carga la imagen primero");
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = new TextDecoder().decode(e.target.result);
+        const marker = "\nEOFSTEG:";
+        const idx = text.indexOf(marker);
+        if (idx === -1) return alert("No se encontró texto EOF");
+        let hidden = text.slice(idx + marker.length);
+        const password = document.getElementById('password').value;
+        if (password) {
+            try {
+                hidden = CryptoJS.AES.decrypt(hidden, password).toString(CryptoJS.enc.Utf8);
+                if (!hidden) return alert("Contraseña incorrecta");
+            } catch (e) {
+                return alert("Contraseña incorrecta");
+            }
+        }
+        alert("Texto EOF: " + hidden);
+    };
+    reader.readAsArrayBuffer(loadedFile);
+}
+
+/* --- descargar --- */
+function downloadBlob(blob, filename) {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+</script>
 </body>
 </html>
